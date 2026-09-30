@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pedala — I tuoi progressi</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#eaf0f6;background:#101820;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:auto;padding:32px 22px}
+header,.row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+h1{font-size:32px;margin:8px 0}h2{font-size:20px;margin:0 0 18px}
+p,small{color:#a8b7c7}small{font-size:14px}.brand{color:#b6ef60;letter-spacing:3px;font-weight:800}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:24px 0}
+.card{background:#1a2632;border:1px solid #324252;border-radius:16px;padding:24px}
+.value{font-size:38px;font-weight:750;margin:12px 0}.value span{font-size:17px;color:#a8b7c7}
+.forms{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
+label{display:block;font-size:14px;margin:12px 0}
+input,select,button{font:inherit;border-radius:8px;padding:11px 13px;border:1px solid #435567}
+input,select{display:block;width:100%;margin-top:6px;background:#101820;color:#eaf0f6}
+button{cursor:pointer;background:#b6ef60;color:#18220e;font-weight:650}
+button.secondary{background:transparent;color:#eaf0f6}button:hover{filter:brightness(1.1)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #b6ef60;outline-offset:3px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+svg{width:100%;height:180px;display:block}.charts{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+table{width:100%;border-collapse:collapse;text-align:left}td,th{padding:12px;border-bottom:1px solid #344453;font-size:14px}
+.scroll{overflow:auto}progress{width:100%;height:10px;accent-color:#b6ef60}
+#message{min-height:25px;color:#b6ef60;margin:12px 0}
+footer{margin-top:24px}.delete{background:transparent;color:#ffb6b6;padding:5px 9px}
+@media(max-width:700px){.grid,.forms,.charts{grid-template-columns:1fr}.card{padding:18px}main{padding:20px 14px}.value{font-size:32px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div><div class="brand">PEDALA / DIARIO CICLISTICO</div><h1>Ogni uscita conta.</h1><p>I tuoi numeri, il tuo percorso.</p></div>
+<div class="row">
+<button class="secondary" id="export">Esporta backup</button>
+<button class="secondary" id="import">Importa backup</button>
+<input type="file" id="file" accept=".json,application/json" hidden>
+</div>
+</header>
+<div id="message" role="status" aria-live="polite"></div>
+<section class="grid" aria-label="Valori attuali">
+<div class="card"><small>Peso attuale</small><div class="value" id="weight"></div><small id="weightChange"></small></div>
+<div class="card"><small>FTP attuale</small><div class="value" id="ftp"></div><small id="ftpChange"></small></div>
+<div class="card"><small>Rapporto potenza / peso</small><div class="value" id="ratio"></div><small>FTP divisa per il peso attuale</small></div>
+</section>
+<section class="forms">
+<form class="card" id="measurement">
+<h2>Registra un valore</h2>
+<div class="fields">
+<label>Parametro<select name="type"><option value="weight">Peso (kg)</option><option value="ftp">FTP (W)</option></select></label>
+<label>Data<input name="date" type="date" required></label>
+</div>
+<label>Valore<input name="value" type="number" min="0.1" max="1000" step="0.1" required placeholder="Es. 77"></label>
+<button>Salva valore</button>
+</form>
+<form class="card" id="ride">
+<h2>Aggiungi un’uscita</h2>
+<label>Nome<input name="name" maxlength="100" required placeholder="Es. Giro del lago"></label>
+<div class="fields">
+<label>Data<input name="date" type="date" required></label>
+<label>Distanza (km)<input name="km" type="number" min="0.1" max="10000" step="0.1" required></label>
+<label>Durata (minuti)<input name="minutes" type="number" min="1" max="10000" required></label>
+<label>Dislivello (m)<input name="elevation" type="number" min="0" max="100000" value="0" required></label>
+</div>
+<button>Salva uscita</button>
+</form>
+</section>
+<section class="card">
+<div class="row"><h2>Progressi nel tempo</h2><small>Storico completo · valori effettivamente registrati</small></div>
+<div class="charts">
+<div><h3>Peso · kg</h3><div id="weightChart"></div></div>
+<div><h3>FTP · W</h3><div id="ftpChart"></div></div>
+</div>
+</section>
+<section class="grid" aria-label="Riepilogo uscite">
+<div class="card"><small>Uscite registrate</small><div class="value" id="count"></div></div>
+<div class="card"><small>Distanza totale</small><div class="value" id="distance"></div></div>
+<div class="card"><small>Tempo in sella</small><div class="value" id="time"></div></div>
+</section>
+<form class="card" id="goals">
+<h2>I tuoi obiettivi</h2>
+<small>Imposta i traguardi che vuoi raggiungere.</small>
+<div class="fields">
+<label>Peso obiettivo (kg)<input name="weight" type="number" min="1" max="500" step="0.1"></label>
+<label>FTP obiettivo (W)<input name="ftp" type="number" min="1" max="1000" step="1"></label>
+</div>
+<button>Salva obiettivi</button>
+<div id="goalProgress"></div>
+</form>
+<section class="card" style="margin-top:24px">
+<h2>Diario</h2>
+<div class="scroll"><table>
+<thead><tr><th>Data</th><th>Registrazione</th><th>Dettagli</th><th>Azioni</th></tr></thead>
+<tbody id="history"></tbody>
+</table></div>
+</section>
+<footer><small>Dati salvati su questo dispositivo. Esporta periodicamente un backup: cancellare i dati del browser elimina anche il diario.</small></footer>
+</main>
+<script>
+const KEY='pedala-v1',today=new Date().toLocaleDateString('en-CA');
+const $=id=>document.getElementById(id);
+const initial=()=>({version:1,measurements:[
+{id:crypto.randomUUID(),type:'weight',date:today,value:77},
+{id:crypto.randomUUID(),type:'ftp',date:today,value:180}
+],rides:[],goals:{}});
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY))||initial()}
+catch{state=initial();$('message').textContent='Impossibile leggere i dati salvati. Puoi ripristinare un backup.'}
+const fmt=n=>Number(n).toLocaleString('it-IT',{maximumFractionDigits:2});
+const dateLabel=d=>new Date(d+'T12:00:00').toLocaleDateString('it-IT');
+document.querySelectorAll('input[type=date]').forEach(i=>{i.value=today;i.max=today});
+function series(type){return state.measurements.filter(m=>m.type===type).sort((a,b)=>a.date.localeCompare(b.date))}
+function latest(type){return series(type).at(-1)?.value}
+function persist(next){
+try{localStorage.setItem(KEY,JSON.stringify(next));state=next;render();say('Dati salvati.');return true}
+catch{say('Salvataggio non riuscito. Esporta un backup e verifica lo spazio del browser.');return false}
+}
+function say(t){$('message').textContent=t}
+function chart(type){
+const list=series(type),container=$(type+'Chart');
+container.replaceChildren();
+if(!list.length){container.textContent='Nessun valore registrato.';return}
+const values=list.map(m=>m.value),lo=Math.min(...values)-1,hi=Math.max(...values)+1;
+const dates=list.map(m=>Date.parse(m.date)),first=dates[0],last=dates.at(-1);
+const coords=list.map((m,i)=>[last===first?250:35+(dates[i]-first)/(last-first)*430,145-(m.value-lo)/(hi-lo)*110]);
+const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
+svg.setAttribute('viewBox','0 0 500 180');svg.setAttribute('role','img');
+svg.setAttribute('aria-label',list.map(m=>dateLabel(m.date)+': '+fmt(m.value)).join('; '));
+function el(tag,attrs){const e=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);svg.append(e);return e}
+[35,90,145].forEach(y=>el('line',{x1:25,x2:475,y1:y,y2:y,stroke:'#344453'}));
+el('polyline',{points:coords.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#b6ef60','stroke-width':3});
+coords.forEach((p,i)=>{
+const c=el('circle',{cx:p[0],cy:p[1],r:5,fill:'#b6ef60'});
+const title=document.createElementNS(ns,'title');title.textContent=dateLabel(list[i].date)+': '+fmt(list[i].value);c.append(title);
+});
+el('text',{x:25,y:174,fill:'#a8b7c7','font-size':14}).textContent=dateLabel(list[0].date);
+el('text',{x:475,y:174,fill:'#a8b7c7','font-size':14,'text-anchor':'end'}).textContent=dateLabel(list.at(-1).date);
+container.append(svg);
+if(list.length===1){const p=document.createElement('p');p.textContent='Punto di partenza: '+fmt(list[0].value)+'. Aggiungi valori per vedere l’andamento.';container.append(p)}
+}
+function render(){
+const w=latest('weight'),f=latest('ftp');
+$('weight').textContent=w?fmt(w)+' kg':'—';
+$('ftp').textContent=f?fmt(f)+' W':'—';
+$('ratio').textContent=w&&f?fmt(f/w)+' W/kg':'—';
+['weight','ftp'].forEach(type=>{
+const s=series(type),delta=s.length?s.at(-1).value-s[0].value:0;
+$(type+'Change').textContent=s.length>1?(delta>0?'+':'')+fmt(delta)+(type==='weight'?' kg':' W')+' dal primo valore':'Valore iniziale';
+chart(type);
+});
+$('count').textContent=state.rides.length;
+$('distance').textContent=fmt(state.rides.reduce((a,r)=>a+r.km,0))+' km';
+const minutes=state.rides.reduce((a,r)=>a+r.minutes,0);
+$('time').textContent=Math.floor(minutes/60)+' h '+minutes%60+' min';
+const gf=$('goals');
+gf.elements.weight.value=state.goals.weight||'';
+gf.elements.ftp.value=state.goals.ftp||'';
+$('goalProgress').replaceChildren();
+['weight','ftp'].forEach(type=>{
+const target=state.goals[type],s=series(type);
+if(!target||!s.length)return;
+const start=s[0].value,current=s.at(-1).value;
+const reached=target>=start?current>=target:current<=target;
+const percentage=reached?100:target===start?0:Math.max(0,Math.min(100,(current-start)/(target-start)*100));
+const p=document.createElement('p');
+p.textContent=(type==='weight'?'Peso':'FTP')+': '+fmt(current)+' / '+fmt(target)+(type==='weight'?' kg':' W')+' · '+Math.round(percentage)+'%';
+const bar=document.createElement('progress');bar.max=100;bar.value=percentage;bar.setAttribute('aria-label',p.textContent);
+$('goalProgress').append(p,bar);
+});
+$('history').replaceChildren();
+const entries=[...state.measurements.map(m=>({...m,kind:'measurement'})),...state.rides.map(r=>({...r,kind:'ride'}))].sort((a,b)=>b.date.localeCompare(a.date));
+for(const e of entries){
+const tr=document.createElement('tr');
+const fields=[dateLabel(e.date),e.kind==='ride'?e.name:e.type==='weight'?'Peso':'FTP',
+e.kind==='ride'?fmt(e.km)+' km · '+e.minutes+' min · '+fmt(e.elevation)+' m':fmt(e.value)+(e.type==='weight'?' kg':' W')];
+fields.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td)});
+const td=document.createElement('td'),b=document.createElement('button');
+b.textContent='Elimina';b.className='delete';b.setAttribute('aria-label','Elimina '+fields[1]+' del '+fields[0]);
+b.onclick=()=>{if(confirm('Eliminare questa registrazione?')){const next=structuredClone(state),key=e.kind==='ride'?'rides':'measurements';next[key]=next[key].filter(x=>x.id!==e.id);persist(next)}};
+td.append(b);tr.append(td);$('history').append(tr);
+}
+}
+$('measurement').onsubmit=e=>{
+e.preventDefault();const data=new FormData(e.target),next=structuredClone(state);
+next.measurements.push({id:crypto.randomUUID(),type:data.get('type'),date:data.get('date'),value:Number(data.get('value'))});
+if(persist(next))e.target.elements.value.value='';
+};
+$('ride').onsubmit=e=>{
+e.preventDefault();const d=new FormData(e.target),next=structuredClone(state);
+next.rides.push({id:crypto.randomUUID(),date:d.get('date'),name:d.get('name').trim(),km:Number(d.get('km')),minutes:Number(d.get('minutes')),elevation:Number(d.get('elevation'))});
+if(persist(next)){e.target.reset();e.target.elements.date.value=today}
+};
+$('goals').onsubmit=e=>{
+e.preventDefault();const next=structuredClone(state);
+next.goals={weight:Number(e.target.elements.weight.value)||null,ftp:Number(e.target.elements.ftp.value)||null};persist(next);
+};
+$('export').onclick=()=>{
+const url=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
+const a=document.createElement('a');a.href=url;a.download='pedala-backup-'+today+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+$('import').onclick=()=>$('file').click();
+const positive=n=>typeof n==='number'&&Number.isFinite(n)&&n>0;
+const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&!isNaN(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d&&d<=today;
+$('file').onchange=async e=>{
+const file=e.target.files[0];if(!file)return;
+try{
+if(file.size>5000000)throw Error();
+const d=JSON.parse(await file.text());
+if(d.version!==1||!Array.isArray(d.measurements)||!Array.isArray(d.rides)||!d.goals)throw Error();
+if(!d.measurements.every(m=>['weight','ftp'].includes(m.type)&&validDate(m.date)&&positive(m.value)))throw Error();
+if(!d.rides.every(r=>typeof r.name==='string'&&r.name.trim().length>0&&r.name.length<=100&&validDate(r.date)&&positive(r.km)&&positive(r.minutes)&&Number.isInteger(r.minutes)&&typeof r.elevation==='number'&&Number.isFinite(r.elevation)&&r.elevation>=0))throw Error();
+if(!['weight','ftp'].every(k=>d.goals[k]==null||positive(d.goals[k])))throw Error();
+d.measurements.forEach(m=>m.id=crypto.randomUUID());d.rides.forEach(r=>r.id=crypto.randomUUID());
+if(confirm('Il backup sostituirà il diario attuale. Continuare?'))persist(d);
+}catch{say('Backup non valido. Seleziona un file JSON esportato da Pedala.')}
+e.target.value='';
+};
+render();
+</script>
+</body>
+</html>

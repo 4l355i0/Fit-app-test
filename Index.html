@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101820">
+  <title>Pedala — Diario ciclistico</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #101820;
+      color: #eef3f8;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1100px; margin: auto; padding: 28px 18px; }
+    h1 { font-size: 32px; margin: 10px 0; }
+    h2 { font-size: 21px; margin: 0 0 18px; }
+    h3 { font-size: 17px; }
+    p, small { color: #afbdca; }
+    small { font-size: 14px; }
+    .brand { color: #b6ef60; font-weight: 800; letter-spacing: 3px; }
+    .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    header { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+    .forms, .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .forms { margin-bottom: 24px; }
+    .card {
+      background: #1a2632;
+      border: 1px solid #344453;
+      border-radius: 16px;
+      padding: 22px;
+    }
+    .value { font-size: 34px; font-weight: 750; margin: 12px 0; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+    label { display: block; font-size: 15px; margin: 12px 0; }
+    input, select, button { font: inherit; border-radius: 9px; padding: 12px; }
+    input, select {
+      width: 100%;
+      min-width: 0;
+      margin-top: 7px;
+      background: #101820;
+      color: #eef3f8;
+      border: 1px solid #495d70;
+    }
+    button {
+      border: 1px solid #b6ef60;
+      background: #b6ef60;
+      color: #18220e;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .secondary { background: transparent; color: #eef3f8; border-color: #495d70; }
+    .delete { padding: 7px 10px; background: transparent; color: #ffb6b6; border-color: #775353; }
+    :focus-visible { outline: 3px solid #b6ef60; outline-offset: 3px; }
+    svg { width: 100%; height: auto; display: block; }
+    progress { width: 100%; height: 12px; accent-color: #b6ef60; }
+    .scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    td, th { padding: 12px 8px; border-bottom: 1px solid #344453; font-size: 14px; }
+    #message { min-height: 24px; margin-top: 18px; color: #b6ef60; }
+    footer { margin: 24px 0; }
+    [hidden] { display: none !important; }
+
+    @media (max-width: 700px) {
+      .grid, .forms, .charts { grid-template-columns: 1fr; }
+      .card { padding: 18px; }
+      h1 { font-size: 28px; }
+    }
+    @media (max-width: 380px) {
+      .fields { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <div class="brand">PEDALA</div>
+      <h1>Il tuo diario ciclistico</h1>
+      <p>Peso, potenza e uscite. Un passo alla volta.</p>
+    </div>
+    <div class="row">
+      <button class="secondary" id="exportButton">Esporta backup</button>
+      <button class="secondary" id="importButton">Importa backup</button>
+      <input id="backupFile" type="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div id="message" role="status" aria-live="polite"></div>
+
+  <section class="grid" aria-label="Valori attuali">
+    <div class="card">
+      <small>Peso attuale</small>
+      <div class="value" id="weightValue"></div>
+      <small id="weightChange"></small>
+    </div>
+    <div class="card">
+      <small>FTP attuale</small>
+      <div class="value" id="ftpValue"></div>
+      <small id="ftpChange"></small>
+    </div>
+    <div class="card">
+      <small>Potenza / peso</small>
+      <div class="value" id="ratioValue"></div>
+      <small>FTP divisa per il peso attuale</small>
+    </div>
+  </section>
+
+  <section class="forms">
+    <form class="card" id="measurementForm">
+      <h2>Registra un valore</h2>
+      <div class="fields">
+        <label>Parametro
+          <select name="type">
+            <option value="weight">Peso (kg)</option>
+            <option value="ftp">FTP (W)</option>
+          </select>
+        </label>
+        <label>Data
+          <input name="date" type="date" required>
+        </label>
+      </div>
+      <label>Valore
+        <input name="value" type="number" min="0.1" max="1000"
+               step="0.1" placeholder="Es. 77" required>
+      </label>
+      <button type="submit">Salva valore</button>
+    </form>
+
+    <form class="card" id="rideForm">
+      <h2>Aggiungi un’uscita</h2>
+      <label>Nome
+        <input name="name" maxlength="100" placeholder="Es. Giro del lago" required>
+      </label>
+      <div class="fields">
+        <label>Data
+          <input name="date" type="date" required>
+        </label>
+        <label>Distanza (km)
+          <input name="km" type="number" min="0.1" max="10000" step="0.1" required>
+        </label>
+        <label>Durata (minuti)
+          <input name="minutes" type="number" min="1" max="10000" step="1" required>
+        </label>
+        <label>Dislivello (m)
+          <input name="elevation" type="number" min="0" max="100000" step="1" value="0" required>
+        </label>
+      </div>
+      <button type="submit">Salva uscita</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Progressi nel tempo</h2>
+    <div class="charts">
+      <div>
+        <h3>Peso · kg</h3>
+        <div id="weightChart"></div>
+      </div>
+      <div>
+        <h3>FTP · W</h3>
+        <div id="ftpChart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid" aria-label="Riepilogo uscite">
+    <div class="card">
+      <small>Uscite registrate</small>
+      <div class="value" id="rideCount"></div>
+    </div>
+    <div class="card">
+      <small>Distanza totale</small>
+      <div class="value" id="totalDistance"></div>
+    </div>
+    <div class="card">
+      <small>Tempo in sella</small>
+      <div class="value" id="totalTime"></div>
+    </div>
+  </section>
+
+  <form class="card" id="goalsForm">
+    <h2>I tuoi obiettivi</h2>
+    <p>Inserisci i traguardi che vuoi raggiungere.</p>
+    <div class="fields">
+      <label>Peso obiettivo (kg)
+        <input name="weight" type="number" min="1" max="500" step="0.1">
+      </label>
+      <label>FTP obiettivo (W)
+        <input name="ftp" type="number" min="1" max="1000" step="1">
+      </label>
+    </div>
+    <button type="submit">Salva obiettivi</button>
+    <div id="goalProgress"></div>
+  </form>
+
+  <section class="card" style="margin-top:24px">
+    <h2>Diario</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Registrazione</th>
+            <th>Dettagli</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody id="history"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <small>
+      I dati sono salvati in questo browser, senza sincronizzazione.
+      Esporta periodicamente un backup: cancellando i dati del browser
+      si elimina anche il diario.
+    </small>
+  </footer>
+</main>
+
+<script>
+"use strict";
+
+const STORAGE_KEY = "pedala-diary-v1";
+const $ = id => document.getElementById(id);
+const uid = () => {
+  if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+};
+
+function today() {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function initialState() {
+  return {
+    version: 1,
+    measurements: [
+      { id: uid(), type: "weight", date: today(), value: 77 },
+      { id: uid(), type: "ftp", date: today(), value: 180 }
+    ],
+    rides: [],
+    goals: { weight: null, ftp: null }
+  };
+}
+
+function validDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(value + "T12:00:00Z");
+  return !Number.isNaN(d.getTime()) &&
+    d.toISOString().slice(0, 10) === value &&
+    value <= today();
+}
+
+function numberInRange(n, min, max) {
+  return typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
+}
+
+function validState(d) {
+  if (!d || d.version !== 1 ||
+      !Array.isArray(d.measurements) || !Array.isArray(d.rides) ||
+      !d.goals || typeof d.goals !== "object") return false;
+
+  if (!d.measurements.every(m =>
+    m && ["weight", "ftp"].includes(m.type) &&
+    validDate(m.date) && numberInRange(m.value, 0.1, 1000)
+  )) return false;
+
+  if (!d.rides.every(r =>
+    r && typeof r.name === "string" &&
+    r.name.trim().length > 0 && r.name.length <= 100 &&
+    validDate(r.date) && numberInRange(r.km, 0.1, 10000) &&
+    numberInRange(r.minutes, 1, 10000) && Number.isInteger(r.minutes) &&
+    numberInRange(r.elevation, 0, 100000) && Number.isInteger(r.elevation)
+  )) return false;
+
+  return (d.goals.weight == null || numberInRange(d.goals.weight, 1, 500)) &&
+    (d.goals.ftp == null ||
+      (numberInRange(d.goals.ftp, 1, 1000) && Number.isInteger(d.goals.ftp)));
+}
+
+function normalize(d) {
+  return {
+    version: 1,
+    measurements: d.measurements.map(m => ({
+      id: uid(), type: m.type, date: m.date, value: m.value
+    })),
+    rides: d.rides.map(r => ({
+      id: uid(), name: r.name.trim(), date: r.date,
+      km: r.km, minutes: r.minutes, elevation: r.elevation
+    })),
+    goals: { weight: d.goals.weight ?? null, ftp: d.goals.ftp ?? null }
+  };
+}
+
+let state = initialState();
+let storageBlocked = false;
+
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (!validState(parsed)) throw new Error("Dati non validi");
+    state = normalize(parsed);
+  } else {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+} catch {
+  storageBlocked = true;
+}
+
+function say(text) {
+  $("message").textContent = text;
+}
+
+function save(next) {
+  if (storageBlocked) {
+    say("Salvataggio bloccato. Esporta un backup prima di continuare e verifica i dati del browser.");
+    return false;
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    state = next;
+    render();
+    say("Dati salvati.");
+    return true;
+  } catch {
+    say("Salvataggio non riuscito. Verifica lo spazio e le impostazioni del browser.");
+    return false;
+  }
+}
+
+function copyState() {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function format(n) {
+  return Number(n).toLocaleString("it-IT", { maximumFractionDigits: 2 });
+}
+
+function formatDate(value) {
+  return new Date(value + "T12:00:00").toLocaleDateString("it-IT");
+}
+
+function series(type) {
+  return state.measurements
+    .filter(m => m.type === type)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function latest(type) {
+  const list = series(type);
+  return list.length ? list[list.length - 1].value : null;
+}
+
+function setDates() {
+  document.querySelectorAll('input[type="date"]').forEach(input => {
+    input.value = today();
+    input.max = today();
+  });
+}
+
+function drawChart(type) {
+  const container = $(type + "Chart");
+  const list = series(type);
+  container.replaceChildren();
+
+  if (!list.length) {
+    container.textContent = "Nessun valore registrato.";
+    return;
+  }
+
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 500 200");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label",
+    list.map(m => formatDate(m.date) + ": " + format(m.value)).join("; ")
+  );
+
+  function add(tag, attributes, text) {
+    const element = document.createElementNS(ns, tag);
+    Object.entries(attributes).forEach(([key, value]) => {
+      element.setAttribute(key, String(value));
+    });
+    if (text !== undefined) element.textContent = text;
+    svg.append(element);
+    return element;
+  }
+
+  const values = list.map(m => m.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = Math.max((max - min) * 0.2, type === "weight" ? 1 : 5);
+  const low = Math.max(0, min - padding);
+  const high = max + padding;
+  const firstDate = Date.parse(list[0].date);
+  const lastDate = Date.parse(list[list.length - 1].date);
+
+  for (let i = 0; i < 3; i++) {
+    const y = 25 + i * 65;
+    add("line", { x1: 58, x2: 475, y1: y, y2: y, stroke: "#344453" });
+    add("text", {
+      x: 48, y: y + 5, fill: "#afbdca",
+      "font-size": 14, "text-anchor": "end"
+    }, format(high - i * (high - low) / 2));
+  }
+
+  const points = list.map(m => {
+    const x = firstDate === lastDate
+      ? 265
+      : 65 + (Date.parse(m.date) - firstDate) / (lastDate - firstDate) * 400;
+    const y = 155 - (m.value - low) / (high - low) * 130;
+    return [x, y];
+  });
+
+  add("polyline", {
+    points: points.map(p => p.join(",")).join(" "),
+    fill: "none", stroke: "#b6ef60", "stroke-width": 3
+  });
+
+  points.forEach((point, index) => {
+    const circle = add("circle", {
+      cx: point[0], cy: point[1], r: 5, fill: "#b6ef60"
+    });
+    const title = document.createElementNS(ns, "title");
+    title.textContent = formatDate(list[index].date) + ": " + format(list[index].value);
+    circle.append(title);
+  });
+
+  add("text", { x: 58, y: 190, fill: "#afbdca", "font-size": 14 },
+    formatDate(list[0].date));
+  if (firstDate !== lastDate) {
+    add("text", {
+      x: 475, y: 190, fill: "#afbdca",
+      "font-size": 14, "text-anchor": "end"
+    }, formatDate(list[list.length - 1].date));
+  }
+
+  container.append(svg);
+
+  if (list.length === 1) {
+    const p = document.createElement("p");
+    p.textContent = "Punto di partenza. Registra altri valori per vedere l’andamento.";
+    container.append(p);
+  }
+}
+
+function renderGoals() {
+  const form = $("goalsForm");
+  form.elements.weight.value = state.goals.weight ?? "";
+  form.elements.ftp.value = state.goals.ftp ?? "";
+  const container = $("goalProgress");
+  container.replaceChildren();
+
+  ["weight", "ftp"].forEach(type => {
+    const target = state.goals[type];
+    const list = series(type);
+    if (!target || !list.length) return;
+
+    const start = list[0].value;
+    const current = list[list.length - 1].value;
+    const reached = target >= start ? current >= target : current <= target;
+    const percent = reached ? 100 :
+      Math.max(0, Math.min(100, (current - start) / (target - start) * 100));
+
+    const p = document.createElement("p");
+    p.textContent = (type === "weight" ? "Peso" : "FTP") + ": " +
+      format(current) + " / " + format(target) +
+      (type === "weight" ? " kg" : " W") + " · " +
+      Math.round(percent) + "% del percorso dal valore iniziale";
+
+    const progress = document.createElement("progress");
+    progress.max = 100;
+    progress.value = percent;
+    progress.setAttribute("aria-label", p.textContent);
+    container.append(p, progress);
+  });
+}
+
+function renderHistory() {
+  const tbody = $("history");
+  tbody.replaceChildren();
+
+  const entries = [
+    ...state.measurements.map(m => ({ ...m, kind: "measurement" })),
+    ...state.rides.map(r => ({ ...r, kind: "ride" }))
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (!entries.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.textContent = "Il diario è vuoto.";
+    tr.append(td);
+    tbody.append(tr);
+    return;
+  }
+
+  entries.forEach(entry => {
+    const tr = document.createElement("tr");
+    const name = entry.kind === "ride"
+      ? entry.name
+      : entry.type === "weight" ? "Peso" : "FTP";
+    const details = entry.kind === "ride"
+      ? format(entry.km) + " km · " + entry.minutes +
+        " min · " + format(entry.elevation) + " m"
+      : format(entry.value) + (entry.type === "weight" ? " kg" : " W");
+
+    [formatDate(entry.date), name, details].forEach(text => {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.append(td);
+    });
+
+    const td = document.createElement("td");
+    const button = document.createElement("button");
+    button.className = "delete";
+    button.textContent = "Elimina";
+    button.setAttribute("aria-label", "Elimina " + name + " del " + formatDate(entry.date));
+    button.onclick = () => {
+      if (!confirm("Eliminare questa registrazione?")) return;
+      const next = copyState();
+      const key = entry.kind === "ride" ? "rides" : "measurements";
+      next[key] = next[key].filter(item => item.id !== entry.id);
+      save(next);
+    };
+    td.append(button);
+    tr.append(td);
+    tbody.append(tr);
+  });
+}
+
+function render() {
+  const weight = latest("weight");
+  const ftp = latest("ftp");
+  $("weightValue").textContent = weight ? format(weight) + " kg" : "—";
+  $("ftpValue").textContent = ftp ? format(ftp) + " W" : "—";
+  $("ratioValue").textContent = weight && ftp ? format(ftp / weight) + " W/kg" : "—";
+
+  ["weight", "ftp"].forEach(type => {
+    const list = series(type);
+    if (list.length > 1) {
+      const delta = list[list.length - 1].value - list[0].value;
+      $(type + "Change").textContent =
+        (delta > 0 ? "+" : "") + format(delta) +
+        (type === "weight" ? " kg" : " W") + " dal primo valore";
+    } else {
+      $(type + "Change").textContent = list.length ? "Valore iniziale" : "Nessun dato";
+    }
+    drawChart(type);
+  });
+
+  $("rideCount").textContent = state.rides.length;
+  $("totalDistance").textContent =
+    format(state.rides.reduce((sum, ride) => sum + ride.km, 0)) + " km";
+
+  const minutes = state.rides.reduce((sum, ride) => sum + ride.minutes, 0);
+  $("totalTime").textContent = Math.floor(minutes / 60) + " h " + minutes % 60 + " min";
+
+  renderGoals();
+  renderHistory();
+}
+
+$("measurementForm").onsubmit = event => {
+  event.preventDefault();
+  const form = event.target;
+  const value = Number(form.elements.value.value);
+  const date = form.elements.date.value;
+  if (!validDate(date) || !numberInRange(value, 0.1, 1000)) {
+    say("Controlla la data e il valore.");
+    return;
+  }
+
+  const next = copyState();
+  next.measurements.push({
+    id: uid(), type: form.elements.type.value, date, value
+  });
+  if (save(next)) form.elements.value.value = "";
+};
+
+$("rideForm").onsubmit = event => {
+  event.preventDefault();
+  const form = event.target;
+  const ride = {
+    id: uid(),
+    name: form.elements.name.value.trim(),
+    date: form.elements.date.value,
+    km: Number(form.elements.km.value),
+    minutes: Number(form.elements.minutes.value),
+    elevation: Number(form.elements.elevation.value)
+  };
+
+  const next = copyState();
+  next.rides.push(ride);
+  if (!validState(next)) {
+    say("Controlla i dati dell’uscita.");
+    return;
+  }
+  if (save(next)) {
+    form.reset();
+    form.elements.date.value = today();
+  }
+};
+
+$("goalsForm").onsubmit = event => {
+  event.preventDefault();
+  const form = event.target;
+  const next = copyState();
+  next.goals = {
+    weight: form.elements.weight.value === "" ? null : Number(form.elements.weight.value),
+    ftp: form.elements.ftp.value === "" ? null : Number(form.elements.ftp.value)
+  };
+  if (!validState(next)) {
+    say("Controlla i valori degli obiettivi.");
+    return;
+  }
+  save(next);
+};
+
+$("exportButton").onclick = async () => {
+  const content = JSON.stringify(state, null, 2);
+  const name = "pedala-backup-" + today() + ".json";
+  const blob = new Blob([content], { type: "application/json" });
+
+  if (typeof File === "function" && navigator.share && navigator.canShare) {
+    const file = new File([blob], name, { type: "application/json" });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Backup Pedala" });
+        say("Backup condiviso. Puoi conservarlo nell’app File.");
+        return;
+      } catch (error) {
+        if (error.name === "AbortError") return;
+      }
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+};
+
+$("importButton").onclick = () => $("backupFile").click();
+
+$("backupFile").onchange = async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    if (file.size > 5000000) throw new Error("File troppo grande");
+    const data = JSON.parse(await file.text());
+    if (!validState(data)) throw new Error("Backup non valido");
+
+    if (!confirm("Il backup sostituirà il diario attuale. Continuare?")) return;
+    const next = normalize(data);
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      state = next;
+      storageBlocked = false;
+      render();
+      say("Backup importato e salvato.");
+    } catch {
+      say("Impossibile salvare il backup in questo browser.");
+    }
+  } catch {
+    say("Backup non valido. Usa un file JSON esportato da Pedala.");
+  } finally {
+    event.target.value = "";
+  }
+};
+
+setDates();
+render();
+
+if (storageBlocked) {
+  say("Non è stato possibile accedere ai dati salvati. Verifica le impostazioni del browser oppure importa un backup.");
+}
+</script>
+</body>
+</html>
